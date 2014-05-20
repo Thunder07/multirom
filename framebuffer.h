@@ -113,9 +113,9 @@ enum
 enum
 {
     SIZE_SMALL     = 1,
-    SIZE_NORMAL    = 2,
-    SIZE_BIG       = 3,
-    SIZE_EXTRA     = 4,
+    SIZE_NORMAL    = 1,
+    SIZE_BIG       = 2,
+    SIZE_EXTRA     = 3,
 };
 #endif
 
