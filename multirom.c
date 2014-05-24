@@ -1228,6 +1228,7 @@ exit:
 
 int multirom_create_media_link(void)
 {
+	return 0;
     int media_new = 0;
     int api_level = multirom_get_api_level("/system/build.prop");
     if(api_level <= 0)
