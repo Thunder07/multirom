@@ -1300,8 +1300,15 @@ int multirom_mount_sdcard(void)
 
 	mkdir_recursive("/storage/sdcard0", 0777);
 
-
 	if(mount(p->device, "/storage/sdcard0", p->type, p->mountflags, p->options) < 0)
+	{
+		ERROR("Failed to mount sdcard folder %d (%s)", errno, strerror(errno));
+		return -1;
+	}
+
+	mkdir_recursive("/mnt/media_rw/sdcard0", 0777);
+
+	if(mount(p->device, "/mnt/media_rw/sdcard0", p->type, p->mountflags, p->options) < 0)
 	{
 		ERROR("Failed to mount sdcard folder %d (%s)", errno, strerror(errno));
 		return -1;
