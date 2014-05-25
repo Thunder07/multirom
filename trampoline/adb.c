@@ -134,8 +134,8 @@ void adb_init_usb(void)
 
     // this vid and pid is used in TWRP, CWM and AOSP recovery
     // for all devices, so I guess it is universal
-    write_file("/sys/class/android_usb/android0/idVendor", "18d1");
-    write_file("/sys/class/android_usb/android0/idProduct", "d001");
+    write_file("/sys/class/android_usb/android0/iVendor", "18d1");
+    write_file("/sys/class/android_usb/android0/iProduct", "d001");
     write_file("/sys/class/android_usb/android0/functions", "adb");
     write_file("/sys/class/android_usb/android0/iManufacturer", PRODUCT_MANUFACTURER);
     write_file("/sys/class/android_usb/android0/iProduct", PRODUCT_MODEL);
