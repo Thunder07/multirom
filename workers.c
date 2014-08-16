@@ -44,7 +44,7 @@ static struct worker_thread worker_thread = {
     .run = 0,
 };
 
-#define SLEEP_CONST 16
+#define SLEEP_CONST 10
 static void *worker_thread_work(void *data)
 {
     struct worker_thread *t = (struct worker_thread*)data;
@@ -114,7 +114,7 @@ void workers_add(worker_call call, void *data)
     w->data = data;
 
     pthread_mutex_lock(&worker_thread.mutex);
-    list_add(w, &worker_thread.workers);
+    list_add(&worker_thread.workers, w);
     pthread_mutex_unlock(&worker_thread.mutex);
 }
 
@@ -136,10 +136,15 @@ void workers_remove(worker_call call, void *data)
             w = worker_thread.workers[i];
             if(w->call == call && w->data == data)
             {
-                list_rm_at(i, &worker_thread.workers, &free);
+                list_rm_at(&worker_thread.workers, i, &free);
                 break;
             }
         }
     }
     pthread_mutex_unlock(&worker_thread.mutex);
+}
+
+pthread_t workers_get_thread_id(void)
+{
+    return worker_thread.thread;
 }

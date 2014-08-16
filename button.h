@@ -40,11 +40,12 @@ enum
 
 typedef struct
 {
-    int x, y;
-    int w, h;
-    fb_text *text;
+    FB_ITEM_HEAD
+
+    fb_img *text;
     fb_rect *rect;
     fb_rect **keyact_frame;
+    int level_off;
 
     uint32_t c[CLR_MAX][2];
  

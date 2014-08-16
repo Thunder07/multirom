@@ -34,6 +34,8 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/wait.h>
+#include <sys/mount.h>
+#include <linux/loop.h>
 
 #include <private/android_filesystem_config.h>
 
@@ -98,6 +100,11 @@ unsigned int decode_uid(const char *s)
 
 int mkdir_recursive(const char *pathname, mode_t mode)
 {
+    return mkdir_recursive_with_perms(pathname, mode, NULL, NULL);
+}
+
+int mkdir_recursive_with_perms(const char *pathname, mode_t mode, const char *owner, const char *group)
+{
     char buf[128];
     const char *slash;
     const char *p = pathname;
@@ -119,7 +126,7 @@ int mkdir_recursive(const char *pathname, mode_t mode)
         memcpy(buf, pathname, width);
         buf[width] = 0;
         if (stat(buf, &info) != 0) {
-            ret = mkdir(buf, mode);
+            ret = mkdir_with_perms(buf, mode, owner, group);
             if (ret && errno != EEXIST)
                 return ret;
         }
@@ -127,6 +134,33 @@ int mkdir_recursive(const char *pathname, mode_t mode)
     ret = mkdir(pathname, mode);
     if (ret && errno != EEXIST)
         return ret;
+    return 0;
+}
+
+int mkdir_with_perms(const char *path, mode_t mode, const char *owner, const char *group)
+{
+    int ret;
+
+    ret = mkdir(path, mode);
+    /* chmod in case the directory already exists */
+    if (ret == -1 && errno == EEXIST) {
+        ret = chmod(path, mode);
+    }
+    if (ret == -1) {
+        return -errno;
+    }
+
+    if(owner)
+    {
+        uid_t uid = decode_uid(owner);
+        gid_t gid = -1;
+
+        if(group)
+            gid = decode_uid(group);
+
+        if(chown(path, uid, gid) < 0)
+            return -errno;
+    }
     return 0;
 }
 
@@ -235,38 +269,11 @@ int copy_file(const char *from, const char *to)
     return 0;
 }
 
-int mkdir_with_perms(const char *path, mode_t mode, const char *owner, const char *group)
-{
-    int ret;
-
-    ret = mkdir(path, mode);
-    /* chmod in case the directory already exists */
-    if (ret == -1 && errno == EEXIST) {
-        ret = chmod(path, mode);
-    }
-    if (ret == -1) {
-        return -errno;
-    }
-
-    if(owner)
-    {
-        uid_t uid = decode_uid(owner);
-        gid_t gid = -1;
-
-        if(group)
-            gid = decode_uid(group);
-
-        if(chown(path, uid, gid) < 0)
-            return -errno;
-    }
-    return 0;
-}
-
 int write_file(const char *path, const char *value)
 {
     int fd, ret, len;
 
-    fd = open(path, O_WRONLY|O_CREAT, 0622);
+    fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC, 0622);
 
     if (fd < 0)
     {
@@ -333,7 +340,7 @@ int remove_dir(const char *dir)
 
 void stdio_to_null(void)
 {
-    int fd = open("/dev/null", O_RDWR);
+    int fd = open("/dev/null", O_RDWR|O_CLOEXEC);
     if(fd >= 0)
     {
         dup2(fd, 0);
@@ -441,6 +448,12 @@ uint32_t timespec_diff(struct timespec *f, struct timespec *s)
     return res;
 }
 
+int64_t timeval_us_diff(struct timeval now, struct timeval prev)
+{
+    return ((int64_t)(now.tv_sec - prev.tv_sec))*1000000+
+        (now.tv_usec - prev.tv_usec);
+}
+
 char *readlink_recursive(const char *link)
 {
     struct stat info;
@@ -543,7 +556,7 @@ void emergency_remount_ro(void)
     /* Trigger the remount of the filesystems as read-only,
      * which also marks them clean.
      */
-    fd = open("/proc/sysrq-trigger", O_WRONLY);
+    fd = open("/proc/sysrq-trigger", O_WRONLY|O_CLOEXEC);
     if (fd < 0) {
         return;
     }
@@ -569,6 +582,11 @@ int imin(int a, int b)
 int imax(int a, int b)
 {
     return (a > b) ? a : b;
+}
+
+inline int iabs(int a)
+{
+    return a >= 0 ? a : -a;
 }
 
 int in_rect(int x, int y, int rx, int ry, int rw, int rh)
@@ -597,5 +615,109 @@ void *mzalloc(size_t size)
 {
     void *res = malloc(size);
     memset(res, 0, size);
+    return res;
+}
+
+char *strtoupper(const char *str)
+{
+    int i;
+    const int len = strlen(str);
+    char *res = malloc(len + 1);
+    for(i = 0; i < len; ++i)
+    {
+        res[i] = str[i];
+        if(str[i] >= 'a' && str[i] <= 'z')
+            res[i] -= 'a'-'A';
+    }
+    res[i] = 0;
+    return res;
+}
+
+int create_loop_device(const char *dev_path, const char *img_path, int loop_num, int loop_chmod)
+{
+    int file_fd, device_fd, res = -1;
+
+    file_fd = open(img_path, O_RDWR | O_CLOEXEC);
+    if (file_fd < 0) {
+        ERROR("Failed to open image %s\n", img_path);
+        return -1;
+    }
+
+    INFO("create_loop_device: loop_num = %d", loop_num);
+
+    if(mknod(dev_path, S_IFBLK | loop_chmod, makedev(7, loop_num)) < 0)
+    {
+        if(errno != EEXIST)
+        {
+            ERROR("Failed to create loop file (%d: %s)\n", errno, strerror(errno));
+            goto close_file;
+        }
+        else
+            INFO("Loop file %s already exists, using it.\n", dev_path);
+    }
+
+    device_fd = open(dev_path, O_RDWR | O_CLOEXEC);
+    if (device_fd < 0)
+    {
+        ERROR("Failed to open loop file (%d: %s)\n", errno, strerror(errno));
+        goto close_file;
+    }
+
+    if (ioctl(device_fd, LOOP_SET_FD, file_fd) < 0)
+    {
+        ERROR("ioctl LOOP_SET_FD failed on %s (%d: %s)\n", dev_path, errno, strerror(errno));
+        goto close_dev;
+    }
+
+    res = 0;
+close_dev:
+    close(device_fd);
+close_file:
+    close(file_fd);
+    return res;
+}
+
+#define MAX_LOOP_NUM 1023
+int mount_image(const char *src, const char *dst, const char *fs, int flags, const void *data)
+{
+    char path[64];
+    int device_fd;
+    int loop_num = 0;
+    int res = -1;
+    struct stat info;
+    struct loop_info64 lo_info;
+
+    for(; loop_num < MAX_LOOP_NUM; ++loop_num)
+    {
+        sprintf(path, "/dev/block/loop%d", loop_num);
+        if(stat(path, &info) < 0)
+        {
+            if(errno == ENOENT)
+                break;
+        }
+        else if(S_ISBLK(info.st_mode) && (device_fd = open(path, O_RDWR | O_CLOEXEC)) >= 0)
+        {
+            int ioctl_res = ioctl(device_fd, LOOP_GET_STATUS64, &lo_info);
+            close(device_fd);
+
+            if (ioctl_res < 0 && errno == ENXIO)
+                break;
+        }
+    }
+
+    if(loop_num == MAX_LOOP_NUM)
+    {
+        ERROR("mount_image: failed to find suitable loop device number!");
+        return -1;
+    }
+
+    if(create_loop_device(path, src, loop_num, 0777) < 0)
+        return -1;
+
+    if(mount(path, dst, fs, flags, data) < 0)
+        ERROR("Failed to mount loop (%d: %s)\n", errno, strerror(errno));
+    else
+        res = 0;
+
     return res;
 }

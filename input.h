@@ -19,6 +19,7 @@
 #define INPUT_H
 
 #include <sys/time.h>
+#include "framebuffer.h"
 
 #define KEY_VOLUMEUP 115
 #define KEY_VOLUMEDOWN 114
@@ -32,18 +33,13 @@ enum
     TCHNG_REMOVED   = 0x08
 };
 
-enum
-{
-    HANDLERS_FIRST  = 0,
-    HANDLERS_ALL    = 1
-};
-
 typedef struct
 {
     int id;
     int x, orig_x;
     int y, orig_y;
     int changed;
+    int consumed;
 
     struct timeval time;
     int64_t us_diff;
@@ -59,7 +55,8 @@ int wait_for_key(void);
 
 void add_touch_handler(touch_callback callback, void *data);
 void rm_touch_handler(touch_callback callback, void *data);
-void set_touch_handlers_mode(int mode);
+void add_touch_handler_async(touch_callback callback, void *data);
+void rm_touch_handler_async(touch_callback callback, void *data);
 
 void input_push_context(void);
 void input_pop_context(void);
@@ -75,14 +72,13 @@ enum
 };
 
 #define KEYACT_FRAME_W (8*DPI_MUL)
-#define KEYACT_FRAME_CLR (0xFFFF0000)
 
 typedef int (*keyaction_call)(void *, int); // data, action
-void keyaction_add(int x, int y, keyaction_call call, void *data);
+void keyaction_add(void *parent, keyaction_call call, void *data);
 void keyaction_remove(keyaction_call call, void *data);
 void keyaction_clear(void);
+void keyaction_clear_active(void);
 int keyaction_handle_keyevent(int key, int press);
 void keyaction_enable(int enable);
-void keyaction_set_destroy_msgbox_handle(int (*handler)(void));
 
 #endif
