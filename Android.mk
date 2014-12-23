@@ -176,6 +176,9 @@ endif
 ifneq ($(MR_QCOM_OVERLAY_CUSTOM_PIXEL_FORMAT),)
     LOCAL_CFLAGS += -DMR_QCOM_OVERLAY_CUSTOM_PIXEL_FORMAT=$(MR_QCOM_OVERLAY_CUSTOM_PIXEL_FORMAT)
 endif
+ifeq ($(MR_QCOM_OVERLAY_USE_VSYNC),true)
+    LOCAL_CFLAGS += -DMR_QCOM_OVERLAY_USE_VSYNC
+endif
 endif
 
 ifeq ($(MR_CONTINUOUS_FB_UPDATE),true)
@@ -192,6 +195,12 @@ include $(multirom_local_path)/fw_mounter/Android.mk
 
 # ZIP installer
 include $(multirom_local_path)/install_zip/Android.mk
+
+# Kexec-tools
+include $(multirom_local_path)/kexec-tools/Android.mk
+
+# adbd
+include $(multirom_local_path)/adbd/Android.mk
 
 # We need static libtruetype but it isn't in standard android makefile :(
 LOCAL_PATH := external/freetype/
