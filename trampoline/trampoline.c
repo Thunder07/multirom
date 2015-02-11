@@ -97,15 +97,18 @@ static void run_multirom(void)
     do
     {
         ERROR("Running multirom");
-        if(run_cmd(cmd) == 0)
+        int res = run_cmd(cmd);
+        if(res == 0)
             break;
+        else
+            ERROR("MultiROM exited with status code %d!", res);
     }
     while(restart);
 }
 
 static void mount_and_run(struct fstab *fstab)
 {
-    struct fstab_part *p = fstab_find_by_path(fstab, "/data");
+    struct fstab_part *p = fstab_find_first_by_path(fstab, "/data");
     if(!p)
     {
         ERROR("Failed to find /data partition in fstab\n");
@@ -118,14 +121,27 @@ static void mount_and_run(struct fstab *fstab)
         return;
     }
 
-    // Remove nosuid flag, because secondary ROMs have
-    // su binaries on /data
-    p->mountflags &= ~(MS_NOSUID);
-
     mkdir(REALDATA, 0755);
-    if (mount(p->device, REALDATA, p->type, p->mountflags, p->options) < 0)
+
+    int mount_err = -1;
+    do
     {
-        ERROR("Failed to mount /realdata, err %d, trying all filesystems\n", errno);
+        // Remove nosuid flag, because secondary ROMs have
+        // su binaries on /data
+        p->mountflags &= ~(MS_NOSUID);
+
+        if(mount(p->device, REALDATA, p->type, p->mountflags, p->options) >= 0)
+            mount_err = 0;
+        else
+            mount_err = -errno;
+    }
+    while(mount_err < 0 && (p = fstab_find_next_by_path(fstab, "/data", p)));
+
+    if(mount_err < 0)
+    {
+        ERROR("Failed to mount /realdata, err %d, trying all filesystems\n", mount_err);
+
+        fstab_dump(fstab);
 
         const char *fs_types[] = { "ext4", "f2fs", "ext3", "ext2" };
         const char *fs_opts [] = {
@@ -269,7 +285,7 @@ int main(int argc, char *argv[])
     if(!fstab)
         goto exit;
 
-#if 0 
+#if 0
     fstab_dump(fstab); //debug
 #endif
 

@@ -104,14 +104,18 @@ ifeq ($(RECOVERY_GRAPHICS_USE_LINELENGTH), true)
     LOCAL_CFLAGS += -DRECOVERY_GRAPHICS_USE_LINELENGTH
 endif
 
-ifeq ($(TARGET_RECOVERY_PIXEL_FORMAT),"RGBX_8888")
+ifeq ($(MR_PIXEL_FORMAT),)
+    MR_PIXEL_FORMAT := $(TARGET_RECOVERY_PIXEL_FORMAT)
+endif
+
+ifeq ($(MR_PIXEL_FORMAT),"RGBX_8888")
     LOCAL_CFLAGS += -DRECOVERY_RGBX
-endif
-ifeq ($(TARGET_RECOVERY_PIXEL_FORMAT),"BGRA_8888")
+else ifeq ($(MR_PIXEL_FORMAT),"BGRA_8888")
     LOCAL_CFLAGS += -DRECOVERY_BGRA
-endif
-ifeq ($(TARGET_RECOVERY_PIXEL_FORMAT),"RGB_565")
+else ifeq ($(MR_PIXEL_FORMAT),"RGB_565")
     LOCAL_CFLAGS += -DRECOVERY_RGB_565
+else
+    $(info TARGET_RECOVERY_PIXEL_FORMAT or MR_PIXEL_FORMAT not set or have invalid value)
 endif
 
 ifeq ($(MR_DPI),)
@@ -144,6 +148,12 @@ endif
 
 ifneq ($(TW_BRIGHTNESS_PATH),)
     LOCAL_CFLAGS += -DTW_BRIGHTNESS_PATH=\"$(TW_BRIGHTNESS_PATH)\"
+endif
+
+ifneq ($(MR_DEFAULT_BRIGHTNESS),)
+    LOCAL_CFLAGS += -DMULTIROM_DEFAULT_BRIGHTNESS=\"$(MR_DEFAULT_BRIGHTNESS)\"
+else
+    LOCAL_CFLAGS += -DMULTIROM_DEFAULT_BRIGHTNESS=40
 endif
 
 ifneq ($(MR_KEXEC_MEM_MIN),)
@@ -184,6 +194,8 @@ endif
 ifeq ($(MR_CONTINUOUS_FB_UPDATE),true)
     LOCAL_CFLAGS += -DMR_CONTINUOUS_FB_UPDATE
 endif
+
+LOCAL_CFLAGS += -DPLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 
 include $(BUILD_EXECUTABLE)
 
@@ -232,6 +244,10 @@ LOCAL_SRC_FILES:= \
     src/cff/cff.c \
     src/psnames/psnames.c \
     src/pshinter/pshinter.c
+
+ifeq ($(shell if [ -e "$(ANDROID_BUILD_TOP)/external/freetype/src/gzip/ftgzip.c" ]; then echo "hasgzip"; fi),hasgzip)
+LOCAL_SRC_FILES += src/gzip/ftgzip.c
+endif
 
 LOCAL_C_INCLUDES += \
     $(LOCAL_PATH)/builds \

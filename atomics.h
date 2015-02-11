@@ -15,11 +15,16 @@
  * along with MultiROM.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef VERSION_H
-#define VERSION_H
-    #define VERSION_MULTIROM 31
-    #define VERSION_TRAMPOLINE 15
+#ifndef ATOMICS_H
+#define ATOMICS_H
 
-    // For device-specific fixes. Use letters, the version will then be like "12a"
-    #define VERSION_DEV_FIX ""
+#if (PLATFORM_SDK_VERSION >= 21)
+#include <stdatomic.h>
+#else
+#include <sys/atomics.h>
+typedef struct { volatile int __val; } atomic_int;
+#define ATOMIC_VAR_INIT(value) { .__val = value }
+#define atomic_compare_exchange_strong(valptr, oldval, newval) (!__atomic_cmpxchg((oldval)->__val, newval, &((valptr)->__val)))
+#endif
+
 #endif
