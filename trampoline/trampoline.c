@@ -105,10 +105,10 @@ static void run_multirom(void)
 
 static void mount_and_run(struct fstab *fstab)
 {
-    struct fstab_part *p = fstab_find_by_path(fstab, "/sdcard");
+    struct fstab_part *p = fstab_find_by_path(fstab, "/data");
     if(!p)
     {
-        ERROR("Failed to find /sdcard partition in fstab\n");
+        ERROR("Failed to find /data partition in fstab\n");
         return;
     }
 

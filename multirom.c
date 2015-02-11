@@ -987,9 +987,6 @@ int multirom_prepare_for_boot(struct multirom_status *s, struct multirom_rom *to
                 if(multirom_create_media_link() == -1)
                     return -1;
 
-                if(multirom_mount_sdcard() == -1)
-                    return -1;
-
                 rom_quirks_on_android_mounted_fs(to_boot);
             }
 
@@ -1398,31 +1395,6 @@ int multirom_create_media_link(void)
     }
 
     return 0;
-}
-
-int multirom_mount_sdcard(void)
-{
-
-	struct fstab_part *p = fstab_find_by_path(fstab_auto_load(), "/sdcard");
-	p->mountflags &= ~(MS_NOSUID);
-
-	mkdir_recursive("/storage/sdcard0", 0777);
-
-	if(mount(p->device, "/storage/sdcard0", p->type, p->mountflags, p->options) < 0)
-	{
-		ERROR("Failed to mount sdcard folder %d (%s)", errno, strerror(errno));
-		return -1;
-	}
-
-	mkdir_recursive("/mnt/media_rw/sdcard0", 0777);
-
-	if(mount(p->device, "/mnt/media_rw/sdcard0", p->type, p->mountflags, p->options) < 0)
-	{
-		ERROR("Failed to mount sdcard folder %d (%s)", errno, strerror(errno));
-		return -1;
-	}
-
-	return 0;
 }
 
 int multirom_get_api_level(const char *path)
