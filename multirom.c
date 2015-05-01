@@ -1334,7 +1334,7 @@ int multirom_create_media_link(void)
     int media_new = 0;
     int api_level = multirom_get_api_level("/system/build.prop");
     if(api_level <= 0)
-        return -1;
+        return 0;
 
     struct stat info;
     if(stat(REALDATA"/media/0", &info) >= 0)
