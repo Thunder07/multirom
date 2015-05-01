@@ -132,6 +132,7 @@ void adb_init_usb(void)
     mkdir_with_perms("/dev/usb-ffs/adb", 0770, "shell", "shell");
     mount("adb", "/dev/usb-ffs/adb", "functionfs", 0, "uid=2000,gid=2000");
 
+    sleep(10);
     write_file("/sys/class/android_usb/android0/enable", "0");
 
     char serial[64] = { 0 };
@@ -146,6 +147,8 @@ void adb_init_usb(void)
     write_file("/sys/class/android_usb/android0/iManufacturer", PRODUCT_MANUFACTURER);
     write_file("/sys/class/android_usb/android0/iProduct", PRODUCT_MODEL);
     write_file("/sys/class/android_usb/android0/iSerial", serial);
+    write_file("/sys/class/android_usb/android0/f_adb/on", "1");
+    write_file("/sys/class/android_usb/android0/f_mtp/on", "0");
 
     write_file("/sys/class/android_usb/android0/enable", "1");
 }
